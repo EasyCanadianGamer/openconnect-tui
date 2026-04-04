@@ -16,6 +16,8 @@ pub async fn spawn_vpn(
 ) {
     let mut child = match Command::new("sudo")
         .args(["-E", "gpclient", "connect", &server, "--browser", &browser])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
     {
         Ok(c) => c,
@@ -53,6 +55,8 @@ pub async fn spawn_vpn(
 pub async fn disconnect_vpn(status_tx: &mpsc::Sender<VpnStatus>) {
     let result = Command::new("sudo")
         .args(["-E", "gpclient", "disconnect"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()
         .await;
 
