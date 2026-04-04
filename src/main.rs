@@ -61,10 +61,19 @@ async fn main() -> io::Result<()> {
                                         vpn::spawn_vpn(server, browser, tx, kill_rx).await;
                                     });
                                 }
-                                ConnectionState::Connected | ConnectionState::Connecting => {
+                                ConnectionState::Connecting => {
+                                    // Still connecting — kill the connect process
                                     if let Some(tx) = app.kill_tx.take() {
                                         let _ = tx.send(()).await;
                                     }
+                                }
+                                ConnectionState::Connected => {
+                                    // Tunnel is up — run gpclient disconnect
+                                    app.connection = ConnectionState::Connecting;
+                                    let tx = status_tx.clone();
+                                    tokio::spawn(async move {
+                                        vpn::disconnect_vpn(&tx).await;
+                                    });
                                 }
                             }
                         }

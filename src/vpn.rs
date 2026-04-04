@@ -29,6 +29,7 @@ pub async fn spawn_vpn(
         status = child.wait() => {
             match status {
                 Ok(s) if s.success() => {
+                    // gpclient connect exits after establishing the tunnel — Connected now
                     let _ = status_tx.send(VpnStatus::Connected).await;
                 }
                 Ok(s) => {
@@ -42,8 +43,30 @@ pub async fn spawn_vpn(
             }
         }
         _ = kill_rx.recv() => {
+            // Kill the connect process if still running, then run disconnect
             let _ = child.kill().await;
+            disconnect_vpn(&status_tx).await;
+        }
+    }
+}
+
+pub async fn disconnect_vpn(status_tx: &mpsc::Sender<VpnStatus>) {
+    let result = Command::new("sudo")
+        .args(["-E", "gpclient", "disconnect"])
+        .status()
+        .await;
+
+    match result {
+        Ok(s) if s.success() => {
             let _ = status_tx.send(VpnStatus::Disconnected).await;
+        }
+        Ok(s) => {
+            let _ = status_tx
+                .send(VpnStatus::Error(format!("disconnect failed with status {s}")))
+                .await;
+        }
+        Err(e) => {
+            let _ = status_tx.send(VpnStatus::Error(e.to_string())).await;
         }
     }
 }
