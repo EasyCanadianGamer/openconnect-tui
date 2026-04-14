@@ -39,6 +39,7 @@ pub async fn spawn_vpn(
 ) {
     let mut child = match Command::new("sudo")
         .args(["-E", "gpclient", "connect", &server, "--browser", &browser])
+        .stdin(std::process::Stdio::inherit())
         .stdout(log_file())
         .stderr(log_file())
         .spawn()

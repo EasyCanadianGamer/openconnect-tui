@@ -117,7 +117,7 @@ fn draw_connect(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled("[ Enter: Connect ]", Style::default().fg(Color::Cyan))
         }
         ConnectionState::Connecting => {
-            Span::styled("[ q: Quit ]", Style::default().fg(Color::DarkGray))
+            Span::styled("[ Enter: Cancel ]  [ q: Quit ]", Style::default().fg(Color::DarkGray))
         }
         ConnectionState::Connected => {
             Span::styled("[ Enter: Disconnect ]", Style::default().fg(Color::Red))
