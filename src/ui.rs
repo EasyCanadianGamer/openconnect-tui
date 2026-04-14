@@ -20,33 +20,29 @@ pub fn draw(frame: &mut Frame, app: &App) {
     match app.tab {
         Tab::Connect => draw_connect(frame, chunks[1], app),
         Tab::Settings => draw_settings(frame, chunks[1], app),
+        Tab::About => draw_about(frame, chunks[1]),
+    }
+}
+
+fn tab_style(active: bool) -> Style {
+    if active {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
     }
 }
 
 fn draw_tabs(frame: &mut Frame, area: Rect, app: &App) {
-    let connect_style = if app.tab == Tab::Connect {
-        Style::default()
-            .fg(Color::Black)
-            .bg(Color::Cyan)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
-
-    let settings_style = if app.tab == Tab::Settings {
-        Style::default()
-            .fg(Color::Black)
-            .bg(Color::Cyan)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
-
     let tabs_line = Line::from(vec![
         Span::raw(" "),
-        Span::styled(" F1 Connect ", connect_style),
+        Span::styled(" F1 Connect ", tab_style(app.tab == Tab::Connect)),
         Span::raw("  "),
-        Span::styled(" F2 Settings ", settings_style),
+        Span::styled(" F2 Settings ", tab_style(app.tab == Tab::Settings)),
+        Span::raw("  "),
+        Span::styled(" F3 About ", tab_style(app.tab == Tab::About)),
     ]);
 
     let tabs_block = Block::default()
@@ -226,4 +222,95 @@ fn draw_settings(frame: &mut Frame, area: Rect, app: &App) {
         .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center);
     frame.render_widget(log_hint, vert[8]);
+}
+
+fn draw_about(frame: &mut Frame, area: Rect) {
+    let outer = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    let inner_area = outer.inner(area);
+    frame.render_widget(outer, area);
+
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(15),
+            Constraint::Length(1), // title
+            Constraint::Length(1), // version
+            Constraint::Length(1),
+            Constraint::Length(1), // description
+            Constraint::Length(1),
+            Constraint::Length(1), // github
+            Constraint::Length(1),
+            Constraint::Length(1), // section header
+            Constraint::Length(1),
+            Constraint::Length(1), // sudo step 1
+            Constraint::Length(1), // sudo step 2
+            Constraint::Length(1), // sudo step 3
+            Constraint::Length(1),
+            Constraint::Length(1), // sudo rule
+            Constraint::Min(0),
+        ])
+        .split(inner_area);
+
+    let horiz = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(15),
+            Constraint::Percentage(70),
+            Constraint::Percentage(15),
+        ]);
+
+    let col = |row: usize| horiz.split(vert[row])[1];
+
+    frame.render_widget(
+        Paragraph::new(format!("openconnect-tui  v{}", env!("CARGO_PKG_VERSION")))
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center),
+        col(1),
+    );
+    frame.render_widget(
+        Paragraph::new("TUI for GlobalProtect VPN via openconnect-gp")
+            .style(Style::default().fg(Color::White))
+            .alignment(Alignment::Center),
+        col(3),
+    );
+    frame.render_widget(
+        Paragraph::new("https://github.com/EasyCanadianGamer/openconnect-tui")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center),
+        col(5),
+    );
+
+    frame.render_widget(
+        Paragraph::new("── Passwordless sudo (prevents disconnect prompt) ──")
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center),
+        col(7),
+    );
+
+    for (i, line) in [
+        "1. sudo visudo -f /etc/sudoers.d/zzz-gpclient",
+        "2. Add:  YOUR_USERNAME ALL=(ALL) NOPASSWD: /usr/bin/gpclient",
+        "3. Save and exit",
+    ]
+    .iter()
+    .enumerate()
+    {
+        frame.render_widget(
+            Paragraph::new(*line)
+                .style(Style::default().fg(Color::Gray))
+                .alignment(Alignment::Center),
+            col(9 + i),
+        );
+    }
+
+    frame.render_widget(
+        Paragraph::new("Note: rename to zzz-gpclient so it sorts after other sudoers rules")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center),
+        col(13),
+    );
 }

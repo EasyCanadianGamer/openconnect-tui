@@ -47,6 +47,7 @@ async fn main() -> io::Result<()> {
                         KeyCode::Char('q') => break,
                         KeyCode::F(1) => app.tab = Tab::Connect,
                         KeyCode::F(2) => app.tab = Tab::Settings,
+                        KeyCode::F(3) => app.tab = Tab::About,
                         KeyCode::Enter => {
                             match &app.connection {
                                 ConnectionState::Disconnected | ConnectionState::Error(_) => {
@@ -84,6 +85,7 @@ async fn main() -> io::Result<()> {
                         KeyCode::Char('q') => break,
                         KeyCode::F(1) => app.tab = Tab::Connect,
                         KeyCode::F(2) => app.tab = Tab::Settings,
+                        KeyCode::F(3) => app.tab = Tab::About,
                         KeyCode::Tab => {
                             app.settings_field = (app.settings_field + 1) % 3;
                         }
@@ -107,6 +109,13 @@ async fn main() -> io::Result<()> {
                                 _ => app.settings_csd_wrapper.push(c),
                             }
                         }
+                        _ => {}
+                    },
+                    Tab::About => match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::F(1) => app.tab = Tab::Connect,
+                        KeyCode::F(2) => app.tab = Tab::Settings,
+                        KeyCode::F(3) => app.tab = Tab::About,
                         _ => {}
                     },
                 }

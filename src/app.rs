@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 pub enum Tab {
     Connect,
     Settings,
+    About,
 }
 
 #[derive(Clone)]

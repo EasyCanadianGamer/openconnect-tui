@@ -40,7 +40,14 @@ pub async fn spawn_vpn(
     mut kill_rx: mpsc::Receiver<()>,
 ) {
     let mut cmd = Command::new("sudo");
-    cmd.args(["-E", "gpclient", "connect", &server, "--browser", &browser]);
+    // Pass only the env vars the browser needs for auth; avoid -E which can
+    // interfere with vpnc-script's route/DNS setup.
+    for var in &["DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XAUTHORITY"] {
+        if let Ok(val) = std::env::var(var) {
+            cmd.arg(format!("{var}={val}"));
+        }
+    }
+    cmd.args(["gpclient", "connect", &server, "--browser", &browser]);
     if !csd_wrapper.is_empty() {
         cmd.args(["--csd-wrapper", &csd_wrapper]);
     }
@@ -98,7 +105,7 @@ pub async fn disconnect_vpn(status_tx: &mpsc::Sender<VpnStatus>) {
     };
 
     let result = Command::new("sudo")
-        .args(["-E", "gpclient", "disconnect"])
+        .args(["gpclient", "disconnect"])
         .stdout(log_stdio())
         .stderr(log_stdio())
         .status()
