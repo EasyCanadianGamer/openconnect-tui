@@ -56,9 +56,10 @@ async fn main() -> io::Result<()> {
 
                                     let server = app.config.vpn_server.clone();
                                     let browser = app.config.browser.clone();
+                                    let csd_wrapper = app.config.csd_wrapper.clone();
                                     let tx = status_tx.clone();
                                     tokio::spawn(async move {
-                                        vpn::spawn_vpn(server, browser, tx, kill_rx).await;
+                                        vpn::spawn_vpn(server, browser, csd_wrapper, tx, kill_rx).await;
                                     });
                                 }
                                 ConnectionState::Connecting => {
@@ -84,25 +85,26 @@ async fn main() -> io::Result<()> {
                         KeyCode::F(1) => app.tab = Tab::Connect,
                         KeyCode::F(2) => app.tab = Tab::Settings,
                         KeyCode::Tab => {
-                            app.settings_field = (app.settings_field + 1) % 2;
+                            app.settings_field = (app.settings_field + 1) % 3;
                         }
                         KeyCode::Enter => {
                             app.config.vpn_server = app.settings_server.clone();
                             app.config.browser = app.settings_browser.clone();
+                            app.config.csd_wrapper = app.settings_csd_wrapper.clone();
                             let _ = app.config.save();
                         }
                         KeyCode::Backspace => {
-                            if app.settings_field == 0 {
-                                app.settings_server.pop();
-                            } else {
-                                app.settings_browser.pop();
+                            match app.settings_field {
+                                0 => { app.settings_server.pop(); }
+                                1 => { app.settings_browser.pop(); }
+                                _ => { app.settings_csd_wrapper.pop(); }
                             }
                         }
                         KeyCode::Char(c) => {
-                            if app.settings_field == 0 {
-                                app.settings_server.push(c);
-                            } else {
-                                app.settings_browser.push(c);
+                            match app.settings_field {
+                                0 => app.settings_server.push(c),
+                                1 => app.settings_browser.push(c),
+                                _ => app.settings_csd_wrapper.push(c),
                             }
                         }
                         _ => {}

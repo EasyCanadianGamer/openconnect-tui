@@ -23,6 +23,7 @@ pub struct App {
     pub settings_field: usize,
     pub settings_server: String,
     pub settings_browser: String,
+    pub settings_csd_wrapper: String,
     pub kill_tx: Option<mpsc::Sender<()>>,
 }
 
@@ -30,6 +31,7 @@ impl App {
     pub fn new(config: Config) -> Self {
         let settings_server = config.vpn_server.clone();
         let settings_browser = config.browser.clone();
+        let settings_csd_wrapper = config.csd_wrapper.clone();
         Self {
             tab: Tab::Connect,
             connection: ConnectionState::Disconnected,
@@ -38,6 +40,7 @@ impl App {
             settings_field: 0,
             settings_server,
             settings_browser,
+            settings_csd_wrapper,
             kill_tx: None,
         }
     }

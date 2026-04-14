@@ -1,5 +1,7 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
@@ -10,19 +12,6 @@ pub enum VpnStatus {
     Error(String),
 }
 
-fn log_file() -> std::process::Stdio {
-    let path = log_path();
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map(std::process::Stdio::from)
-        .unwrap_or_else(|_| std::process::Stdio::null())
-}
-
 pub fn log_path() -> PathBuf {
     dirs::state_dir()
         .or_else(dirs::data_local_dir)
@@ -31,17 +20,34 @@ pub fn log_path() -> PathBuf {
         .join("gpclient.log")
 }
 
+fn open_log() -> Option<std::fs::File> {
+    let path = log_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .ok()
+}
+
 pub async fn spawn_vpn(
     server: String,
     browser: String,
+    csd_wrapper: String,
     status_tx: mpsc::Sender<VpnStatus>,
     mut kill_rx: mpsc::Receiver<()>,
 ) {
-    let mut child = match Command::new("sudo")
-        .args(["-E", "gpclient", "connect", &server, "--browser", &browser])
+    let mut cmd = Command::new("sudo");
+    cmd.args(["-E", "gpclient", "connect", &server, "--browser", &browser]);
+    if !csd_wrapper.is_empty() {
+        cmd.args(["--csd-wrapper", &csd_wrapper]);
+    }
+    let mut child = match cmd
         .stdin(std::process::Stdio::inherit())
-        .stdout(log_file())
-        .stderr(log_file())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
         .spawn()
     {
         Ok(c) => c,
@@ -51,16 +57,26 @@ pub async fn spawn_vpn(
         }
     };
 
+    // Read stderr line-by-line: write to log and detect "Connected to VPN"
+    let stderr = child.stderr.take().expect("stderr piped");
+    let tx_clone = status_tx.clone();
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            if let Some(mut log) = open_log() {
+                let _ = writeln!(log, "{line}");
+            }
+            if line.contains("Connected to VPN") {
+                let _ = tx_clone.send(VpnStatus::Connected).await;
+            }
+        }
+    });
+
     tokio::select! {
         status = child.wait() => {
             match status {
-                Ok(s) if s.success() => {
-                    let _ = status_tx.send(VpnStatus::Connected).await;
-                }
-                Ok(s) => {
-                    let _ = status_tx
-                        .send(VpnStatus::Error(format!("exited with status {s}")))
-                        .await;
+                Ok(_) => {
+                    let _ = status_tx.send(VpnStatus::Disconnected).await;
                 }
                 Err(e) => {
                     let _ = status_tx.send(VpnStatus::Error(e.to_string())).await;
@@ -75,10 +91,16 @@ pub async fn spawn_vpn(
 }
 
 pub async fn disconnect_vpn(status_tx: &mpsc::Sender<VpnStatus>) {
+    let log_stdio = || {
+        open_log()
+            .map(std::process::Stdio::from)
+            .unwrap_or_else(|| std::process::Stdio::null())
+    };
+
     let result = Command::new("sudo")
         .args(["-E", "gpclient", "disconnect"])
-        .stdout(log_file())
-        .stderr(log_file())
+        .stdout(log_stdio())
+        .stderr(log_stdio())
         .status()
         .await;
 

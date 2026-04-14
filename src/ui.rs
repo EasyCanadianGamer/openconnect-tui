@@ -117,7 +117,7 @@ fn draw_connect(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled("[ Enter: Connect ]", Style::default().fg(Color::Cyan))
         }
         ConnectionState::Connecting => {
-            Span::styled("[ Enter: Cancel ]  [ q: Quit ]", Style::default().fg(Color::DarkGray))
+            Span::styled("[ Enter: Cancel ]  [ q: Quit ]", Style::default().fg(Color::Gray))
         }
         ConnectionState::Connected => {
             Span::styled("[ Enter: Disconnect ]", Style::default().fg(Color::Red))
@@ -140,13 +140,16 @@ fn draw_settings(frame: &mut Frame, area: Rect, app: &App) {
     let vert = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(20),
+            Constraint::Percentage(10),
             Constraint::Length(3), // server field
             Constraint::Length(1),
             Constraint::Length(3), // browser field
             Constraint::Length(1),
+            Constraint::Length(3), // csd wrapper field
+            Constraint::Length(1),
             Constraint::Length(1), // hint
             Constraint::Min(0),
+            Constraint::Length(1), // log path hint
         ])
         .split(inner_area);
 
@@ -161,47 +164,66 @@ fn draw_settings(frame: &mut Frame, area: Rect, app: &App) {
 
     let server_area = horiz.split(vert[1])[1];
     let browser_area = horiz.split(vert[3])[1];
-    let hint_area = horiz.split(vert[5])[1];
+    let csd_area = horiz.split(vert[5])[1];
+    let hint_area = horiz.split(vert[7])[1];
 
     let server_focused = app.settings_field == 0;
     let browser_focused = app.settings_field == 1;
+    let csd_focused = app.settings_field == 2;
+
+    let field_color = |focused: bool| if focused { Color::Cyan } else { Color::DarkGray };
 
     let server_block = Block::default()
-        .title(Span::styled(
-            " VPN Server ",
-            Style::default().fg(Color::White),
-        ))
+        .title(Span::styled(" VPN Server ", Style::default().fg(Color::White)))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(if server_focused {
-            Color::Cyan
-        } else {
-            Color::DarkGray
-        }));
+        .border_style(Style::default().fg(field_color(server_focused)));
 
     let browser_block = Block::default()
         .title(Span::styled(" Browser ", Style::default().fg(Color::White)))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(if browser_focused {
-            Color::Cyan
-        } else {
-            Color::DarkGray
-        }));
+        .border_style(Style::default().fg(field_color(browser_focused)));
 
-    let server_para = Paragraph::new(app.settings_server.as_str())
-        .style(Style::default().fg(Color::White))
-        .block(server_block);
+    let csd_block = Block::default()
+        .title(Span::styled(" HIP Report Script (--csd-wrapper) ", Style::default().fg(Color::White)))
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(field_color(csd_focused)));
 
-    let browser_para = Paragraph::new(app.settings_browser.as_str())
-        .style(Style::default().fg(Color::White))
-        .block(browser_block);
-
-    frame.render_widget(server_para, server_area);
-    frame.render_widget(browser_para, browser_area);
+    frame.render_widget(
+        Paragraph::new(app.settings_server.as_str())
+            .style(Style::default().fg(Color::White))
+            .block(server_block),
+        server_area,
+    );
+    frame.render_widget(
+        Paragraph::new(app.settings_browser.as_str())
+            .style(Style::default().fg(Color::White))
+            .block(browser_block),
+        browser_area,
+    );
+    frame.render_widget(
+        Paragraph::new(app.settings_csd_wrapper.as_str())
+            .style(Style::default().fg(Color::White))
+            .block(csd_block),
+        csd_area,
+    );
 
     let hint = Paragraph::new("Tab: switch field  |  Enter: save  |  Backspace: delete")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center);
     frame.render_widget(hint, hint_area);
+
+    // Log path hint at the very bottom
+    let log_path = crate::vpn::log_path();
+    let home = dirs::home_dir().unwrap_or_default();
+    let display = log_path
+        .strip_prefix(&home)
+        .map(|p| format!("~/{}", p.display()))
+        .unwrap_or_else(|_| log_path.display().to_string());
+    let log_hint = Paragraph::new(format!("logs: tail -f {display}"))
+        .style(Style::default().fg(Color::Gray))
+        .alignment(Alignment::Center);
+    frame.render_widget(log_hint, vert[8]);
 }

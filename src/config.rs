@@ -6,6 +6,8 @@ use std::path::PathBuf;
 pub struct Config {
     pub vpn_server: String,
     pub browser: String,
+    #[serde(default)]
+    pub csd_wrapper: String,
 }
 
 impl Default for Config {
@@ -13,6 +15,7 @@ impl Default for Config {
         Self {
             vpn_server: "vpn.tcnj.edu".to_string(),
             browser: "firefox".to_string(),
+            csd_wrapper: String::new(),
         }
     }
 }
